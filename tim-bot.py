@@ -1,4 +1,5 @@
 import sys
+import getpass
 import argparse
 
 from selenium import webdriver
@@ -23,53 +24,57 @@ class TimBot(object):
         elem.send_keys(Keys.RETURN)
 
         # TODO: check if logged in
-        
+
+    def goto_tab(self, name):
+        for elem in self.browser.find_elements_by_css_selector('.Tab > a'):
+            if elem.text == name:
+                elem.click()
+                break
+
+    def goto_menu(self, name):
+        for elem in self.browser.find_elements_by_css_selector('.menuitemtxtcell .menuitemlink'):
+            if elem.text == name:
+                elem.click()
+                break
+
     def goto_week(self, week_no=0):
-        i = week_no - self._get_week()
-        while i != 0:
-            if i > 0:
-                self._goto_next_week()
-            else:
-                self._goto_prev_week()
-            i = week_no - self._get_week()
-    
-    def _goto_next_week(self):
-        elem = self.browser.find_element_by_css_selector('img[src="https://hours.tudelft.nl/img/nextweek.gif"]')
-        elem.click()
-        
-    def _goto_prev_week(self):
-        elem = self.browser.find_element_by_css_selector('img[src="https://hours.tudelft.nl/img/prevweek.gif"]')
-        elem.click()
-    
-    def _goto_curr_week(self):
-        elem = self.browser.find_element_by_css_selector('img[src="https://hours.tudelft.nl/img/currweek.gif"]')
-        elem.click()
-        
-    def _get_week(self):
-        return int(self.browser.find_element_by_css_selector('td.msheetcontextCol2 > strong').text.split()[-1])
+        # Goto current week
+        if week_no == 0:
+            elem = self.browser.find_element_by_css_selector('img[src="https://hours.tudelft.nl/img/currweek.gif"]')
+            elem.click()
+
+        done = False
+        while not done:
+            i = week_no - int(self.browser.find_element_by_css_selector('td.msheetcontextCol2 > strong').text.split()[-1])
+            selector = 'img[src="https://hours.tudelft.nl/img/%s.gif"]' % ('nextweek'if i > 0 else 'prevweek')
+            elem = self.browser.find_element_by_css_selector(selector)
+            elem.click()
+            done = i == 0
 
     def close(self):
         self.browser.close()
+
+
+def login_prompt(username=None):
+    username = username or raw_input('Username: ')
+    password = getpass.getpass('Password: ')
+    return username, password
+
 
 def main(argv):
     parser = argparse.ArgumentParser(add_help=False, description=('Automate the process of filling in hour-registration in TIM'))
     parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help='show this help message and exit')
     parser.add_argument('--username', '-u', help='NetID username for logging into TIM')
-    parser.add_argument('--password', '-p', help='NetID password')
     parser.add_argument('--firefox', '-f', help='Location of Firefox executable')
 
     try:
         args = parser.parse_args(sys.argv[1:])
 
-        username = args.username
-        password = args.password
-
-        if not username or not password:
-            parser.print_usage()
-            raise ValueError('username and password are required options')
-
+        username, password = login_prompt(args.username)
         tim = TimBot(username, password, args.firefox)
-        tim.goto_week(1)
+        #tim.goto_tab('Calendar')
+        tim.goto_week(5)
+        tim.goto_menu('Close TimEnterprise')
 
     except Exception, e:
         print 'Error:', str(e)
