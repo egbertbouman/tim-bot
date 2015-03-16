@@ -53,14 +53,19 @@ class TimBot(object):
     def _get_week(self):
         return int(self.browser.find_element_by_css_selector('td.msheetcontextCol2 > strong').text.split()[-1])
 
-    def set_hours(self, value, product_code='IAOU'):
+    def set_hours(self, value, baan_code='IAOU'):
+        row = None
         for elem in self.browser.find_elements_by_css_selector('td[class^="mrh"][class*="bc"] > span[class="mdisspan"]'):
-            if elem.text == product_code:
-                parent = elem.find_element_by_xpath('../..')
-                elems = parent.find_elements_by_css_selector('td[class^="mcv"] > div > input')
-                for e in elems:
-                    e.clear()
-                    e.send_keys(value)
+            if elem.text == baan_code:
+                row = elem.find_element_by_xpath('../..')
+
+        if not row:
+            raise Exception('Could not find BAAN code')
+
+        elems = row.find_elements_by_css_selector('td[class^="mcv"] > div > input')
+        for e in elems:
+            e.clear()
+            e.send_keys(value)
 
     def close(self):
         self.browser.close()
@@ -71,21 +76,33 @@ def login_prompt(username=None):
     password = getpass.getpass('Password: ')
     return username, password
 
+def parse_weeks(weeks):
+    ranges = (x.split('-') for x in weeks.split(','))
+    return [i for r in ranges for i in range(int(r[0]), int(r[-1]) + 1)]
 
 def main(argv):
     parser = argparse.ArgumentParser(add_help=False, description=('Automate the process of filling in hour-registration in TIM'))
     parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help='show this help message and exit')
     parser.add_argument('--username', '-u', help='NetID username for logging into TIM')
     parser.add_argument('--firefox', '-f', help='Location of Firefox executable')
+    parser.add_argument('--weeks', '-w', help='Weeks for which to fill in hour registration (example: 1-5,8,10)')
+    parser.add_argument('--code', '-c', help='BAAN-code')
 
     try:
         args = parser.parse_args(sys.argv[1:])
 
+        if not args.weeks or not args.code:
+            parser.print_usage()
+            raise ValueError('weeks and code are required options')
+
+        weeks = parse_weeks(args.weeks)
+        weeks.sort()
+
         username, password = login_prompt(args.username)
         tim = TimBot(username, password, args.firefox)
-        #tim.goto_tab('Calendar')
-        tim.goto_week(10)
-        tim.set_hours(1)
+        for week in weeks:
+            tim.goto_week(week)
+            tim.set_hours(8, args.code)
         #tim.goto_menu('Close TimEnterprise')
 
     except Exception, e:
