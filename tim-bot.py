@@ -2,6 +2,7 @@ import sys
 import getpass
 import argparse
 
+from argparse import RawTextHelpFormatter
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
@@ -80,29 +81,36 @@ def parse_weeks(weeks):
     ranges = (x.split('-') for x in weeks.split(','))
     return [i for r in ranges for i in range(int(r[0]), int(r[-1]) + 1)]
 
+def parse_codes(codes):
+    codes = [x.split('@') for x in codes.split(',')]
+    return [(int(h), c) for h, c in codes]
+
 def main(argv):
-    parser = argparse.ArgumentParser(add_help=False, description=('Automate the process of filling in hour-registration in TIM'))
-    parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help='show this help message and exit')
+    parser = argparse.ArgumentParser(add_help=False, description=('Automate the process of filling in hour-registration in TIM'), formatter_class=RawTextHelpFormatter)
+    parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS, help='Show this help message and exit')
     parser.add_argument('--username', '-u', help='NetID username for logging into TIM')
     parser.add_argument('--firefox', '-f', help='Location of Firefox executable')
-    parser.add_argument('--weeks', '-w', help='Weeks for which to fill in hour registration (example: 1-5,8,10)')
-    parser.add_argument('--code', '-c', help='BAAN-code')
+    parser.add_argument('--weeks', '-w', help='Weeks for which to fill in hour registration \n(example: 1-5,8,10)')
+    parser.add_argument('--codes', '-c', help='Comma-separated list of hours and BAAN-codes, \nin the form: <hours>@<BAAN-code> \n(example: 7@CODE1,1@CODE2)')
 
     try:
         args = parser.parse_args(sys.argv[1:])
 
-        if not args.weeks or not args.code:
+        if not args.weeks or not args.codes:
             parser.print_usage()
-            raise ValueError('weeks and code are required options')
+            raise ValueError('weeks and codes are required options')
 
         weeks = parse_weeks(args.weeks)
         weeks.sort()
+
+        codes = parse_codes(args.codes)
 
         username, password = login_prompt(args.username)
         tim = TimBot(username, password, args.firefox)
         for week in weeks:
             tim.goto_week(week)
-            tim.set_hours(8, args.code)
+            for hours, code in codes:
+                tim.set_hours(hours, code)
         #tim.goto_menu('Close TimEnterprise')
 
     except Exception, e:
