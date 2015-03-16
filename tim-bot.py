@@ -43,13 +43,24 @@ class TimBot(object):
             elem = self.browser.find_element_by_css_selector('img[src="https://hours.tudelft.nl/img/currweek.gif"]')
             elem.click()
 
-        done = False
-        while not done:
-            i = week_no - int(self.browser.find_element_by_css_selector('td.msheetcontextCol2 > strong').text.split()[-1])
+        i = week_no - self._get_week()
+        while i != 0:
             selector = 'img[src="https://hours.tudelft.nl/img/%s.gif"]' % ('nextweek'if i > 0 else 'prevweek')
             elem = self.browser.find_element_by_css_selector(selector)
             elem.click()
-            done = i == 0
+            i = week_no - self._get_week()
+
+    def _get_week(self):
+        return int(self.browser.find_element_by_css_selector('td.msheetcontextCol2 > strong').text.split()[-1])
+
+    def set_hours(self, value, product_code='IAOU'):
+        for elem in self.browser.find_elements_by_css_selector('td[class^="mrh"][class*="bc"] > span[class="mdisspan"]'):
+            if elem.text == product_code:
+                parent = elem.find_element_by_xpath('../..')
+                elems = parent.find_elements_by_css_selector('td[class^="mcv"] > div > input')
+                for e in elems:
+                    e.clear()
+                    e.send_keys(value)
 
     def close(self):
         self.browser.close()
@@ -73,8 +84,9 @@ def main(argv):
         username, password = login_prompt(args.username)
         tim = TimBot(username, password, args.firefox)
         #tim.goto_tab('Calendar')
-        tim.goto_week(5)
-        tim.goto_menu('Close TimEnterprise')
+        tim.goto_week(10)
+        tim.set_hours(1)
+        #tim.goto_menu('Close TimEnterprise')
 
     except Exception, e:
         print 'Error:', str(e)
